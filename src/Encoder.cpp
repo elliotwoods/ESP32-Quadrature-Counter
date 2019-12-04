@@ -17,8 +17,8 @@ Encoder::Encoder(gpio_num_t gpioPinA, gpio_num_t gpioPinB, pcnt_unit_t pcntUnit)
 }
 
 void Encoder::init() {
-	//gpio_set_pull_mode(this->gpioPinA, GPIO_PULLUP_ONLY);
-	//gpio_set_pull_mode(this->gpioPinB, GPIO_PULLUP_ONLY);
+	gpio_set_pull_mode(this->gpioPinA, GPIO_PULLUP_ONLY);
+	gpio_set_pull_mode(this->gpioPinB, GPIO_PULLUP_ONLY);
 
 	/* Prepare configuration for the PCNT unit */
 	pcnt_config_t pcnt_config;
@@ -63,15 +63,21 @@ void Encoder::init() {
 
 	/* Everything is set up, now go to counting */
 	pcnt_counter_resume(this->pcntUnit);
+
+	this->startingOffset = this->getAddition();
 }
 
-int16_t Encoder::getValue() {
+int32_t Encoder::getValue() const {
 	int16_t value;
-	return pcnt_get_counter_value(this->pcntUnit, &value);
+	pcnt_get_counter_value(this->pcntUnit, &value);
+	return (((int32_t) value) << 2)
+			+ this->getAddition()
+			- (int32_t) this->startingOffset;
+}
 
+int32_t Encoder::getAddition() const {
 	auto A = gpio_get_level(this->gpioPinA);
 	auto B = gpio_get_level(this->gpioPinB);
-	int16_t addition = (B << 1) + (A ^ B);
-
-	return value * 4 + addition;
+	int32_t addition = (B << 1) + (A ^ B);
+	return addition;
 }
